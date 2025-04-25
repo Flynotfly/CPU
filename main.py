@@ -1,3 +1,5 @@
+import re
+
 INPUT_FILE = 'C:/Users/1/Documents/TuringComplete/input.txt'
 LABELS_FILE = 'C:/Users/1/Documents/TuringComplete/with_labels.txt'
 OUTPUT_FILE = 'C:/Users/1/Documents/TuringComplete/output.txt'
@@ -266,10 +268,24 @@ def base_assemble_file(in_path: str, out_path: str):
                 continue
 
 
-# def resolv_labels()
+def resolve_labels(in_path: str, out_path: str):
+    pattern = re.compile(r'#(\w+)')
+    with open(in_path, 'r', encoding='utf-8') as fin, \
+            open(out_path, 'w', encoding='utf-8') as fout:
+
+        for line in fin:
+            def _repl(m):
+                key = m.group(1)
+                try:
+                    return str(labels[key])
+                except KeyError:
+                    raise KeyError(f"Label '{key}' not found in labels dict")
+
+            new_line = pattern.sub(_repl, line)
+            fout.write(new_line)
 
 
 if __name__ == '__main__':
     base_assemble_file(INPUT_FILE, LABELS_FILE)
+    resolve_labels(LABELS_FILE, OUTPUT_FILE)
     print(f"Сборка завершена — результат в {OUTPUT_FILE}")
-    print(labels)
