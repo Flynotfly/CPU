@@ -123,32 +123,43 @@ def check_lenth(parts: list, expect: int, op: str):
         raise ValueError(f"{op} expects {expect - 1} operands, got {len(parts) - 1}")
 
 
-def parse_operand(tok: str, operand_type: str = 'src') -> tuple[int, bool]:
+def parse_operand(tok: str, operand_type: str = 'src') -> tuple[int, bool] | tuple[str, bool]:
     ALLOW_NUMBER = False
     ALLOW_REGISTER = False
+    ALLOW_LABELS = False
+
     if operand_type == 'src':
         ALLOW_NUMBER = True
         ALLOW_REGISTER = True
+
     elif operand_type == 'dst':
         ALLOW_REGISTER = True
-    elif operand_type == 'value':
+
+    elif operand_type == 'goto':
         ALLOW_NUMBER = True
+        ALLOW_LABELS = True
+
     else:
-        raise ValueError(f"Unknown operand type {operand_type}. Expect 'src', 'dst' or 'value'")
+        raise ValueError(f"Unknown operand type {operand_type}. Expect 'src', 'dst' or 'goto'")
 
-    if ALLOW_NUMBER:
-        try:
-            num = int(tok, 0)
-        except ValueError:
-            pass
-        else:
+    try:
+        num = int(tok, 0)
+    except ValueError:
+        pass
+    else:
+        if ALLOW_NUMBER:
             return to_u16(num), True
+        else:
+            raise ValueError(f"Number as operand is not allowed with {operand_type} operand type.")
 
-    if ALLOW_REGISTER:
-        if tok in REGISTERS:
+    if tok in REGISTERS:
+        if ALLOW_REGISTER:
             return REGISTERS[tok], False
         else:
-            raise ValueError(f"Unknown register {tok!r}")
+            raise ValueError(f"Register as operand is not allowed with {operand_type} operand type.")
+
+    if ALLOW_LABELS:
+        return '#' + tok, False
 
     raise ValueError(f"Invalid operand {tok!r} for type {operand_type!r}")
 
@@ -222,7 +233,7 @@ def parse_line(line: str) -> tuple[int, int, int, int] | None | str:
             check_lenth(parts, 4, op)
             arg1, imm1 = parse_operand(parts[1], 'src')
             arg2, imm2 = parse_operand(parts[2], 'src')
-            value, _ = parse_operand(parts[3], 'value')
+            value, _ = parse_operand(parts[3], 'goto')
             w0 = create_command(imm1, imm2, op,)
             return w0, arg1, arg2, value
 
@@ -242,7 +253,13 @@ def base_assemble_file(in_path: str, out_path: str):
                 if len(parsed) == 4:
                     command_line += 1
                     w0, w1, w2, w3 = parsed
-                    fout.write(f"{to_u16(w0)} {to_u16(w1)} {to_u16(w2)} {to_u16(w3)}\n")
+                    w0 = to_u16(w0)
+                    w1 = to_u16(w1)
+                    w2 = to_u16(w2)
+                    if not isinstance(w3, str) or not w3.startswith('#'):
+                        w3 = to_u16(w3)
+
+                    fout.write(f"{w0} {w1} {w2} {w3}\n")
 
             except ValueError as e:
                 print(f"Ошибка в строке {ln}: {e}")
