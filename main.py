@@ -185,26 +185,27 @@ def parse_line(line: str) -> tuple[int, int, int, int] | None | str:
         return None
     parts = code.lower().split()
     op = parts[0]
+    def _check_length(expect): check_length(parts, expect, op)
 
     match op:
         case "nop":
             return 0, EMPTY, EMPTY, EMPTY
 
         case "mov":
-            check_length(parts, 3, op)
+            _check_length(3)
             src, imm1 = parse_operand(parts[1], 'src')
             dst, _ = parse_operand(parts[2], 'dst')
             w0 = create_command(imm1, False, op)
             return w0, src, EMPTY, dst
 
         case "push":
-            check_length(parts, 2, op)
+            _check_length(2)
             src, imm1 = parse_operand(parts[1], 'src')
             w0 = create_command(imm1, False, op)
             return w0, src, EMPTY, EMPTY
 
         case "pop":
-            check_length(parts, 2, op)
+            _check_length(2)
             dst, _ = parse_operand(parts[1], 'dst')
             w0 = create_command(False, False, op)
             return w0, EMPTY, EMPTY, dst
@@ -217,14 +218,14 @@ def parse_line(line: str) -> tuple[int, int, int, int] | None | str:
             return ''
 
         case op if op in CALC_CODES_ONE_ARG:
-            check_length(parts, 3, op)
+            _check_length(3)
             arg1, imm1 = parse_operand(parts[1], 'src')
             dst, _ = parse_operand(parts[2], 'dst')
             w0 = create_command(imm1, False, op)
             return w0, arg1, EMPTY, dst
 
         case op if op in CALC_CODES_TWO_ARGS:
-            check_length(parts, 4, op)
+            _check_length(4)
             arg1, imm1 = parse_operand(parts[1], 'src')
             arg2, imm2 = parse_operand(parts[2], 'src')
             dst, _ = parse_operand(parts[3], 'dst')
@@ -232,7 +233,7 @@ def parse_line(line: str) -> tuple[int, int, int, int] | None | str:
             return w0, arg1, arg2, dst
 
         case op if op in CONDITION_CODES:
-            check_length(parts, 4, op)
+            _check_length(4)
             arg1, imm1 = parse_operand(parts[1], 'src')
             arg2, imm2 = parse_operand(parts[2], 'src')
             value, _ = parse_operand(parts[3], 'goto')
