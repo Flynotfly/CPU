@@ -120,7 +120,7 @@ def find_opcode_path(name: str):
     raise ValueError(f"Opcode '{name}' not found in FUNCS")
 
 
-def check_lenth(parts: list, expect: int, op: str):
+def check_length(parts: list, expect: int, op: str):
     if len(parts) != expect:
         raise ValueError(f"{op} expects {expect - 1} operands, got {len(parts) - 1}")
 
@@ -191,20 +191,20 @@ def parse_line(line: str) -> tuple[int, int, int, int] | None | str:
             return 0, EMPTY, EMPTY, EMPTY
 
         case "mov":
-            check_lenth(parts, 3, op)
+            check_length(parts, 3, op)
             src, imm1 = parse_operand(parts[1], 'src')
             dst, _ = parse_operand(parts[2], 'dst')
             w0 = create_command(imm1, False, op)
             return w0, src, EMPTY, dst
 
         case "push":
-            check_lenth(parts, 2, op)
+            check_length(parts, 2, op)
             src, imm1 = parse_operand(parts[1], 'src')
             w0 = create_command(imm1, False, op)
             return w0, src, EMPTY, EMPTY
 
         case "pop":
-            check_lenth(parts, 2, op)
+            check_length(parts, 2, op)
             dst, _ = parse_operand(parts[1], 'dst')
             w0 = create_command(False, False, op)
             return w0, EMPTY, EMPTY, dst
@@ -217,14 +217,14 @@ def parse_line(line: str) -> tuple[int, int, int, int] | None | str:
             return ''
 
         case op if op in CALC_CODES_ONE_ARG:
-            check_lenth(parts, 3, op)
+            check_length(parts, 3, op)
             arg1, imm1 = parse_operand(parts[1], 'src')
             dst, _ = parse_operand(parts[2], 'dst')
             w0 = create_command(imm1, False, op)
             return w0, arg1, EMPTY, dst
 
         case op if op in CALC_CODES_TWO_ARGS:
-            check_lenth(parts, 4, op)
+            check_length(parts, 4, op)
             arg1, imm1 = parse_operand(parts[1], 'src')
             arg2, imm2 = parse_operand(parts[2], 'src')
             dst, _ = parse_operand(parts[3], 'dst')
@@ -232,7 +232,7 @@ def parse_line(line: str) -> tuple[int, int, int, int] | None | str:
             return w0, arg1, arg2, dst
 
         case op if op in CONDITION_CODES:
-            check_lenth(parts, 4, op)
+            check_length(parts, 4, op)
             arg1, imm1 = parse_operand(parts[1], 'src')
             arg2, imm2 = parse_operand(parts[2], 'src')
             value, _ = parse_operand(parts[3], 'goto')
