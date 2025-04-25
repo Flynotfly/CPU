@@ -1,16 +1,5 @@
-"""
-Assembler → machine-code для вашего 16-битного CPU.
-Слово №0 (MSB→LSB):
-  бит 1 (1<<15): immediate-флаг первого аргумента
-  бит 2 (1<<14): immediate-флаг второго аргумента
-  бит 3         : зарезервирован
-  биты 4–7 (<<9): opcode
-  биты 8–10 (<<6): субкод (для copy: тип копирования; для calc/if: ALU-тип)
-  биты 11–14 (<<2): субфункция (для copy: операция; для calc: ALU-функция; для if: код сравнения)
-  бит 15–16     : зарезервированы
-"""
-
 INPUT_FILE = 'C:/Users/1/Documents/TuringComplete/input.txt'
+LABELS_FILE = 'C:/Users/1/Documents/TuringComplete/with_labels.txt'
 OUTPUT_FILE = 'C:/Users/1/Documents/TuringComplete/output.txt'
 
 
@@ -112,6 +101,9 @@ REGISTERS = {
     'sp': 9,
 }
 
+labels = {}
+command_line = 0
+
 
 def find_opcode_path(name: str):
     """
@@ -172,7 +164,9 @@ def create_command(imm1: bool, imm2: bool, func: str) -> int:
     return w
 
 
-def parse_line(line: str) -> tuple[int, int, int, int] | None:
+def parse_line(line: str) -> tuple[int, int, int, int] | None | str:
+    global command_line
+
     code = line.split(';', 1)[0].strip()
     if not code:
         return None
@@ -202,6 +196,13 @@ def parse_line(line: str) -> tuple[int, int, int, int] | None:
             w0 = create_command(False, False, op)
             return w0, EMPTY, EMPTY, dst
 
+        case "label":
+            label = parts[1]
+            if label in labels:
+                raise KeyError(f"Label {label} already in labels. Each label should appear once.")
+            labels[label] = command_line
+            return ''
+
         case op if op in CALC_CODES_ONE_ARG:
             check_lenth(parts, 3, op)
             arg1, imm1 = parse_operand(parts[1], 'src')
@@ -229,21 +230,29 @@ def parse_line(line: str) -> tuple[int, int, int, int] | None:
             raise ValueError(f"Unknown opcode '{op}'")
 
 
-def assemble_file(in_path: str, out_path: str):
+def base_assemble_file(in_path: str, out_path: str):
     with open(in_path, 'r', encoding='utf-8') as fin, \
             open(out_path, 'w', encoding='utf-8') as fout:
+        global command_line
         for ln, line in enumerate(fin, 1):
             try:
                 parsed = parse_line(line)
                 if not parsed:
                     continue
-                w0, w1, w2, w3 = parsed
-                fout.write(f"{to_u16(w0)} {to_u16(w1)} {to_u16(w2)} {to_u16(w3)}\n")
+                if len(parsed) == 4:
+                    command_line += 1
+                    w0, w1, w2, w3 = parsed
+                    fout.write(f"{to_u16(w0)} {to_u16(w1)} {to_u16(w2)} {to_u16(w3)}\n")
+
             except ValueError as e:
                 print(f"Ошибка в строке {ln}: {e}")
                 continue
 
 
+# def resolv_labels()
+
+
 if __name__ == '__main__':
-    assemble_file(INPUT_FILE, OUTPUT_FILE)
+    base_assemble_file(INPUT_FILE, LABELS_FILE)
     print(f"Сборка завершена — результат в {OUTPUT_FILE}")
+    print(labels)
