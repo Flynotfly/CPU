@@ -99,8 +99,8 @@ REGISTERS = {
     'r5': 5,
     'r6': 6,
     'r7': 7,
-    'counter': 8,
-    'sp': 9,
+    'pc': 8,  # program counter
+    'sp': 9,  # stack pointer
 }
 
 labels = {}
