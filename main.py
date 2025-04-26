@@ -116,6 +116,7 @@ command_line = 0
 current_function = {
     'callee_saved': [],
     'reserved': 0,
+    'is_active': False,
 }
 error_counter = 0
 
@@ -224,6 +225,10 @@ def resolve_macro_line(line: str) -> str | None:
 
     match op:
         case "def":
+            if current_function['is_active']:
+                raise ValueError(f"Function declared inside of another function. "
+                                 f"You must declare functions only outside of function."
+                                 f"Maybe you forgot 'ret' command?")
             if len(parts) >= 2:
                 current_function['callee_saved'] = []
                 current_function['reserved'] = 0
@@ -255,6 +260,8 @@ def resolve_macro_line(line: str) -> str | None:
                     else:
                         raise ValueError(f"Got unexpected token '{tok}' during process 'def'.")
 
+                current_function['is_active'] = True
+
                 if reserve:
                     current_function['reserved'] = int(reserve)
                     code.append(f"sub sp {reserve} sp")
@@ -264,7 +271,28 @@ def resolve_macro_line(line: str) -> str | None:
                 return result
 
             else:
-                raise ValueError('Def should has at least one argument')
+                raise ValueError(f"The 'def' command should have at least one argument. Got {len(parts)-1}")
+
+        case "ret":
+            if len(parts) == 1:
+                code = []
+                reserve = current_function['reserved']
+                if reserve:
+                    code.append(f"add sp {reserve} sp")
+                saved = len(current_function['callee_saved'])
+                if saved:
+                    code.append(f"add sp {saved} sp")
+                code.append("pop bp")
+                code.append("pop pc")
+                current_function['is_active'] = False
+                result = ""
+                for element in code:
+                    result = result + element + "\n"
+                return result
+            else:
+                raise ValueError(f"The 'ret' command should have no arguments. Got {len(parts)-1}")
+
+
         case _:
             return line
 
