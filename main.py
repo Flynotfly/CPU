@@ -1,8 +1,10 @@
 import re
 
-from queue import LifoQueue
+from clean import clean_code
+from unpack_macro import unpack_macro_commands
 
 INPUT_FILE = 'C:/Users/1/Documents/TuringComplete/input.txt'
+CLEAN_FILE = 'C:/Users/1/Documents/TuringComplete/clean.txt'
 RESOLVED_MACRO_FILE = 'C:/Users/1/Documents/TuringComplete/resovled_macro.txt'
 LABELS_FILE = 'C:/Users/1/Documents/TuringComplete/with_labels.txt'
 OUTPUT_FILE = 'C:/Users/1/Documents/TuringComplete/output.txt'
@@ -218,133 +220,6 @@ def parse_multi(lines: list) -> str:
     return ''.join(parsed)
 
 
-def resolve_macro_line(line: str) -> str | None:
-    code = line.split(';', 1)[0].strip()
-    if not code:
-        return None
-    parts = code.lower().split()
-    op = parts[0]
-
-    global current_function
-
-    match op:
-        case "def":
-            if current_function['is_active']:
-                raise ValueError(f"Function declared inside of another function. "
-                                 f"You must declare functions only outside of function."
-                                 f"Maybe you forgot 'ret' command?")
-            if len(parts) >= 2:
-                current_function['callee_saved'] = []
-                current_function['reserved'] = 0
-                reserve = None
-                code = [
-                    f"label {parts[1]}",
-                    "push bp",
-                    "mov sp bp",
-                ]
-                mode = None
-                for tok in parts[2:]:
-                    if tok in ("save", "reserve"):
-                        mode = tok
-                        continue
-
-                    if mode == "save":
-                        if tok in CALLEE_SAVED:
-                            current_function['callee_saved'].append(tok)
-                            code.append(f'push {tok}')
-                        else:
-                            raise ValueError(f"You should save only callee saved register when assign funciton. "
-                                             f"Got {tok},expect on of: {CALLEE_SAVED}")
-                    elif mode == "reserve":
-                        if reserve is None:
-                            reserve = tok
-                        else:
-                            raise ValueError("Reserve argument in def command must have exactly 1 parament. Got more.")
-                        mode = None
-                    else:
-                        raise ValueError(f"Got unexpected token '{tok}' during process 'def'.")
-
-                current_function['is_active'] = True
-
-                if reserve:
-                    current_function['reserved'] = int(reserve)
-                    code.append(f"sub sp {reserve} sp")
-                result = ""
-                for element in code:
-                    result = result + element + "\n"
-                return result
-
-            else:
-                raise ValueError(f"The 'def' command should have at least one argument. Got {len(parts)-1}")
-
-        case "ret":
-            if len(parts) == 2:
-                code = [f"mov {parts[1]} rv"]
-                reserve = current_function['reserved']
-                if reserve:
-                    code.append(f"add sp {reserve} sp")
-                saved = current_function['callee_saved']
-                if saved:
-                    for element in saved:
-                        code.append(f"pop {element}")
-                code.append("pop bp")
-                code.append("pop pc")
-                current_function['is_active'] = False
-                result = ""
-                for element in code:
-                    result = result + element + "\n"
-                return result
-            else:
-                raise ValueError(f"The 'ret' command should have exactly one argument. Got {len(parts)-1}")
-
-        case "call":
-            if len(parts) >= 2:
-                code = []
-                goto = parts[1]
-                to_save = []
-                args = []
-                mode = None
-
-                for tok in parts[2:]:
-                    if tok in ("save", "args"):
-                        mode = tok
-                        continue
-
-                    if mode == "save":
-                        if tok in CALLER_SAVED:
-                            to_save.append(tok)
-                            code.append(f'push {tok}')
-                        else:
-                            raise ValueError(f"You should save only caller saved register when call funciton. "
-                                             f"Got {tok},expect on of: {CALLER_SAVED}")
-                    elif mode == "args":
-                        args.append(tok)
-                    else:
-                        raise ValueError(f"Got unexpected token '{tok}' during process 'call'.")
-
-                if args:
-                    for arg in reversed(args):
-                        code.append(f'push {arg}')
-                code.append("push pc+")
-                code.append(f"jmp {goto}")
-                if args:
-                    code.append(f"add sp {len(args)} sp")
-                if to_save:
-                    for element in to_save:
-                        code.append(f"pop {element}")
-
-                result = ""
-                for element in code:
-                    result = result + element + "\n"
-                return result
-
-            else:
-                raise ValueError(f"The 'call' command should have exactly one argument. Got 0")
-
-        case _:
-            return line
-
-
 def parse_line(line: str) -> str | None:
     global command_line
 
@@ -422,22 +297,6 @@ def parse_line(line: str) -> str | None:
             raise ValueError(f"Unknown opcode '{op}'")
 
 
-def resolve_macro(in_path: str, out_path: str):
-    with open(in_path, 'r', encoding='utf-8') as fin, \
-            open(out_path, 'w', encoding='utf-8') as fout:
-        for ln, line in enumerate(fin, 1):
-            try:
-                parsed = resolve_macro_line(line)
-                if not parsed:
-                    continue
-                fout.write(parsed)
-
-            except ValueError as e:
-                increase_error_counter()
-                print(f"Error while resolve macro: {ln}: {e}")
-                continue
-
-
 def base_assemble_file(in_path: str, out_path: str):
     global error_counter
     with open(in_path, 'r', encoding='utf-8') as fin, \
@@ -475,13 +334,11 @@ def resolve_labels(in_path: str, out_path: str):
 
 
 if __name__ == '__main__':
-    print('--- Start built             | Resolve macro commands ---')
-    resolve_macro(INPUT_FILE, RESOLVED_MACRO_FILE)
-    print('--- Resolved macro commands | Start assemble ---')
-    base_assemble_file(RESOLVED_MACRO_FILE, LABELS_FILE)
-    print('--- Assembled               | Resolve labels ---')
-    resolve_labels(LABELS_FILE, OUTPUT_FILE)
-    print(f'--- Resolved labels         | Built in {OUTPUT_FILE} ---')
-    if error_counter:
-        print(f"Got {error_counter} errors!")
 
+    clean_code(INPUT_FILE, CLEAN_FILE)
+    unpack_macro_commands(CLEAN_FILE, RESOLVED_MACRO_FILE)
+
+    base_assemble_file(RESOLVED_MACRO_FILE, LABELS_FILE)
+    resolve_labels(LABELS_FILE, OUTPUT_FILE)
+
+    print(labels)
