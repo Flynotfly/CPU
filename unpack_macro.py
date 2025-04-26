@@ -39,7 +39,7 @@ def process_line(line: str) -> str:
 
             mode = None
             for tok in parts[2:]:
-                if tok in ("save", "args"):
+                if tok in ("save", "reserve"):
                     mode = tok
                 elif mode == "save":
                     if tok in CALLEE_SAVED:
@@ -47,8 +47,8 @@ def process_line(line: str) -> str:
                         code.append(f'push {tok}')
                     else:
                         raise ValueError()
-                elif mode == "args":
-                    if global_function['args_quantity'] is None:
+                elif mode == "reserve":
+                    if not global_function['args_quantity']:
                         global_function['args_quantity'] = int(tok)
                     else:
                         raise ValueError()
@@ -136,7 +136,8 @@ def unpack_macro_commands(in_path: str, out_path: str):
             try:
                 out_line = process_line(line)
             except ValueError as e:
+                raise ValueError
                 print(f"Exception on line {ln}: {e}")
             else:
-                fout.write(out_line + "\n")
+                fout.write(out_line)
 
