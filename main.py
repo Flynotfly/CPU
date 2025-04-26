@@ -279,9 +279,10 @@ def resolve_macro_line(line: str) -> str | None:
                 reserve = current_function['reserved']
                 if reserve:
                     code.append(f"add sp {reserve} sp")
-                saved = len(current_function['callee_saved'])
+                saved = current_function['callee_saved']
                 if saved:
-                    code.append(f"add sp {saved} sp")
+                    for element in saved:
+                        code.append(f"pop {element}")
                 code.append("pop bp")
                 code.append("pop pc")
                 current_function['is_active'] = False
