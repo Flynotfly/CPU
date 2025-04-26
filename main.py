@@ -159,7 +159,7 @@ def parse_operand(tok: str, operand_type: str) -> tuple[int, bool] | tuple[str, 
 
     if tok in REGISTERS:
         if ALLOW_REGISTER:
-            return REGISTERS[tok], False
+            return to_u16(REGISTERS[tok]), False
         else:
             raise ValueError(f"Register as operand is not allowed with {operand_type} operand type.")
 
@@ -177,10 +177,27 @@ def create_command(imm1: bool, imm2: bool, func: str) -> int:
     w |= (OPCODES[opcode] << OPCODE_SHIFT)
     w |= (TYPES[opcode][op_type] << SUBTYPE_SHIFT)
     w |= (FUNCS[opcode][op_type][op_func] << SUBFUNC_SHIFT)
-    return w
+    return to_u16(w)
 
 
-def parse_line(line: str) -> tuple[int, int, int, int] | None | str:
+def to_string(*inp) -> str:
+    result = ""
+    for element in inp:
+        result = result + str(element) + " "
+    result = result[:-1] + "\n"
+    return result
+
+
+def parse_multi(lines: list) -> str:
+    parsed = []
+    for line in lines:
+        result = parse_line(line)
+        if result:
+            parsed.append(result)
+    return ''.join(parsed)
+
+
+def parse_line(line: str) -> str | None:
     global command_line
 
     code = line.split(';', 1)[0].strip()
@@ -192,26 +209,30 @@ def parse_line(line: str) -> tuple[int, int, int, int] | None | str:
 
     match op:
         case "nop":
-            return 0, EMPTY, EMPTY, EMPTY
+            command_line += 1
+            return to_string(0, EMPTY, EMPTY, EMPTY)
 
         case "mov":
             _check_length(3)
             src, imm1 = parse_operand(parts[1], 'src')
             dst, _ = parse_operand(parts[2], 'dst')
             w0 = create_command(imm1, False, op)
-            return w0, src, EMPTY, dst
+            command_line += 1
+            return to_string(w0, src, EMPTY, dst)
 
         case "push":
             _check_length(2)
             src, imm1 = parse_operand(parts[1], 'src')
             w0 = create_command(imm1, False, op)
-            return w0, src, EMPTY, EMPTY
+            command_line += 1
+            return to_string(w0, src, EMPTY, EMPTY)
 
         case "pop":
             _check_length(2)
             dst, _ = parse_operand(parts[1], 'dst')
             w0 = create_command(False, False, op)
-            return w0, EMPTY, EMPTY, dst
+            command_line += 1
+            return to_string(w0, EMPTY, EMPTY, dst)
 
         case "label":
             _check_length(2)
@@ -226,23 +247,25 @@ def parse_line(line: str) -> tuple[int, int, int, int] | None | str:
             src, imm1 = parse_operand(parts[1], 'jmp')
             dst, _ = parse_operand('pc', 'dst')
             w0 = create_command(imm1, False, 'mov')
-            return w0, src, EMPTY, dst
+            command_line += 1
+            return to_string(w0, src, EMPTY, dst)
 
         case "def":
             _check_length(2)
-            result = [
-                f"label f{parts[1]}",
+            code = [
+                f"label {parts[1]}",
                 "push bp",
                 "mov sp bp",
             ]
-            return result
+            return parse_multi(code)
 
         case op if op in CALC_CODES_ONE_ARG:
             _check_length(3)
             arg1, imm1 = parse_operand(parts[1], 'src')
             dst, _ = parse_operand(parts[2], 'dst')
             w0 = create_command(imm1, False, op)
-            return w0, arg1, EMPTY, dst
+            command_line += 1
+            return to_string(w0, arg1, EMPTY, dst)
 
         case op if op in CALC_CODES_TWO_ARGS:
             _check_length(4)
@@ -250,7 +273,8 @@ def parse_line(line: str) -> tuple[int, int, int, int] | None | str:
             arg2, imm2 = parse_operand(parts[2], 'src')
             dst, _ = parse_operand(parts[3], 'dst')
             w0 = create_command(imm1, imm2, op)
-            return w0, arg1, arg2, dst
+            command_line += 1
+            return to_string(w0, arg1, arg2, dst)
 
         case op if op in CONDITION_CODES:
             _check_length(4)
@@ -258,7 +282,8 @@ def parse_line(line: str) -> tuple[int, int, int, int] | None | str:
             arg2, imm2 = parse_operand(parts[2], 'src')
             value, _ = parse_operand(parts[3], 'goto')
             w0 = create_command(imm1, imm2, op,)
-            return w0, arg1, arg2, value
+            command_line += 1
+            return to_string(w0, arg1, arg2, value)
 
         case _:
             raise ValueError(f"Unknown opcode '{op}'")
@@ -273,18 +298,7 @@ def base_assemble_file(in_path: str, out_path: str):
                 parsed = parse_line(line)
                 if not parsed:
                     continue
-                if len(parsed) == 4:
-                    command_line += 1
-                    w0, w1, w2, w3 = parsed
-                    w0 = to_u16(w0)
-                    if not isinstance(w1, str) or not w1.startswith('#'):
-                        w1 = to_u16(w1)
-                    if not isinstance(w2, str) or not w2.startswith('#'):
-                        w2 = to_u16(w2)
-                    if not isinstance(w3, str) or not w3.startswith('#'):
-                        w3 = to_u16(w3)
-
-                    fout.write(f"{w0} {w1} {w2} {w3}\n")
+                fout.write(parsed)
 
             except ValueError as e:
                 print(f"Ошибка в строке {ln}: {e}")
