@@ -1,6 +1,9 @@
 import re
 
+from queue import LifoQueue
+
 INPUT_FILE = 'C:/Users/1/Documents/TuringComplete/input.txt'
+RESOLVED_MACRO_FILE = 'C:/Users/1/Documents/TuringComplete/resovled_macro.txt'
 LABELS_FILE = 'C:/Users/1/Documents/TuringComplete/with_labels.txt'
 OUTPUT_FILE = 'C:/Users/1/Documents/TuringComplete/output.txt'
 
@@ -105,8 +108,21 @@ REGISTERS = {
     'pc+': 11,  # pc + 1: next second operation / do not choose as dst
 }
 
+CALLER_SAVED = ['r0', 'r1', 'r2']
+CALLEE_SAVED = ['r3', 'r4', 'r5']
+
 labels = {}
 command_line = 0
+current_function = {
+    'callee_saved': [],
+    'reserved': 0,
+}
+error_counter = 0
+
+
+def increase_error_counter():
+    global error_counter
+    error_counter += 1
 
 
 def find_opcode_path(name: str):
@@ -197,13 +213,66 @@ def parse_multi(lines: list) -> str:
     return ''.join(parsed)
 
 
-def parse_line(line: str) -> str | None:
-    global command_line
-
+def resolve_macro_line(line: str) -> str | None:
     code = line.split(';', 1)[0].strip()
     if not code:
         return None
     parts = code.lower().split()
+    op = parts[0]
+
+    global current_function
+
+    match op:
+        case "def":
+            if len(parts) >= 2:
+                current_function['callee_saved'] = []
+                current_function['reserved'] = 0
+                reserve = None
+                code = [
+                    f"label {parts[1]}",
+                    "push bp",
+                    "mov sp bp",
+                ]
+                mode = None
+                for tok in parts[2:]:
+                    if tok in ("save", "reserve"):
+                        mode = tok
+                        continue
+
+                    if mode == "save":
+                        if tok in CALLEE_SAVED:
+                            current_function['callee_saved'].append(tok)
+                            code.append(f'push {tok}')
+                        else:
+                            raise ValueError(f"You should save only callee saved register when assign funciton. "
+                                             f"Got {tok},expect on of: {CALLEE_SAVED}")
+                    elif mode == "reserve":
+                        if reserve is None:
+                            reserve = tok
+                        else:
+                            raise ValueError("Reserve argument in def command must have exactly 1 parament. Got more.")
+                        mode = None
+                    else:
+                        raise ValueError(f"Got unexpected token '{tok}' during process 'def'.")
+
+                if reserve:
+                    current_function['reserved'] = int(reserve)
+                    code.append(f"sub sp {reserve} sp")
+                result = ""
+                for element in code:
+                    result = result + element + "\n"
+                return result
+
+            else:
+                raise ValueError('Def should has at least one argument')
+        case _:
+            return line
+
+
+def parse_line(line: str) -> str | None:
+    global command_line
+
+    parts = line.lower().split()
     op = parts[0]
     def _check_length(expect): check_length(parts, expect, op)
 
@@ -250,15 +319,6 @@ def parse_line(line: str) -> str | None:
             command_line += 1
             return to_string(w0, src, EMPTY, dst)
 
-        case "def":
-            _check_length(2)
-            code = [
-                f"label {parts[1]}",
-                "push bp",
-                "mov sp bp",
-            ]
-            return parse_multi(code)
-
         case op if op in CALC_CODES_ONE_ARG:
             _check_length(3)
             arg1, imm1 = parse_operand(parts[1], 'src')
@@ -289,7 +349,24 @@ def parse_line(line: str) -> str | None:
             raise ValueError(f"Unknown opcode '{op}'")
 
 
+def resolve_macro(in_path: str, out_path: str):
+    with open(in_path, 'r', encoding='utf-8') as fin, \
+            open(out_path, 'w', encoding='utf-8') as fout:
+        for ln, line in enumerate(fin, 1):
+            try:
+                parsed = resolve_macro_line(line)
+                if not parsed:
+                    continue
+                fout.write(parsed)
+
+            except ValueError as e:
+                increase_error_counter()
+                print(f"Error while resolve macro: {ln}: {e}")
+                continue
+
+
 def base_assemble_file(in_path: str, out_path: str):
+    global error_counter
     with open(in_path, 'r', encoding='utf-8') as fin, \
             open(out_path, 'w', encoding='utf-8') as fout:
         global command_line
@@ -301,7 +378,8 @@ def base_assemble_file(in_path: str, out_path: str):
                 fout.write(parsed)
 
             except ValueError as e:
-                print(f"Ошибка в строке {ln}: {e}")
+                increase_error_counter()
+                print(f"Error while assemble: {ln}: {e}")
                 continue
 
 
@@ -316,13 +394,21 @@ def resolve_labels(in_path: str, out_path: str):
                 try:
                     return str(labels[key])
                 except KeyError:
-                    raise KeyError(f"Label '{key}' not found in labels dict")
+                    increase_error_counter()
+                    print(f"Label '{key}' not found in labels dict")
 
             new_line = pattern.sub(_repl, line)
             fout.write(new_line)
 
 
 if __name__ == '__main__':
-    base_assemble_file(INPUT_FILE, LABELS_FILE)
+    print('--- Start built             | Resolve macro commands ---')
+    resolve_macro(INPUT_FILE, RESOLVED_MACRO_FILE)
+    print('--- Resolved macro commands | Start assemble ---')
+    base_assemble_file(RESOLVED_MACRO_FILE, LABELS_FILE)
+    print('--- Assembled               | Resolve labels ---')
     resolve_labels(LABELS_FILE, OUTPUT_FILE)
-    print(f"Сборка завершена — результат в {OUTPUT_FILE}")
+    print(f'--- Resolved labels         | Built in {OUTPUT_FILE} ---')
+    if error_counter:
+        print(f"Got {error_counter} errors!")
+
