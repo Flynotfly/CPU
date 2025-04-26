@@ -1,0 +1,1 @@
+CONDITION_CODES = {'eq', 'lt', 'lte', 'gt', 'gte', 'lts', 'ltes', 'gts', 'gtes'}
