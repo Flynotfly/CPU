@@ -143,10 +143,13 @@ def process_line(line: str) -> str:
             sys_label = get_free_sys_label()
             true_label = sys_label + "t"
             false_label = sys_label + "f"
+            end_label = sys_label + "e"
             nests.put({
                 'condition': 'if',
                 'label': sys_label,
-                'end_label': false_label,
+                'end_label': end_label,
+                'false_label': false_label,
+                'else': False,
                 'elif': 0,
             })
             condition, arg1, arg2 = parts[1:]
@@ -158,7 +161,36 @@ def process_line(line: str) -> str:
             return code_to_str(code)
 
         case "elif":
-            ...
+            if not len(parts) == 4:
+                raise ValueError()
+
+            if not is_condition(*parts[1:]):
+                raise ValueError()
+
+            nested = nests.get()
+            if not nested['condition'] == "if":
+                raise ValueError()
+
+            label = nested['label']
+            index = nested['elif']
+            old_false_label = nested['false_label']
+            false_label = label + 'f' + str(index)
+            end_label = nested['end_label']
+            nested['elif'] = index + 1
+            nested['false_label'] = false_label
+            nests.put(nested)
+
+            true_label = label + 't' + str(index)
+            condition, arg1, arg2 = parts[1:]
+            code = [
+                f"jmp {end_label}",
+                f"label {old_false_label}",
+                f"{condition} {arg1} {arg2} {true_label}",
+                f"jmp {false_label}",
+                f"label {true_label}",
+            ]
+            return code_to_str(code)
+
         case "else":
             if nests.empty():
                 raise ValueError()
@@ -168,13 +200,13 @@ def process_line(line: str) -> str:
 
             nested = nests.get()
             if nested['condition'] == "if":
-                label = nested['label']
-                end_label = label + 'e'
-                nested['end_label'] = end_label
+                end_label = nested['end_label']
+                false_label = nested['false_label']
+                nested['else'] = True
                 nests.put(nested)
                 code = [
                     f"jmp {end_label}",
-                    f"label {label + 'f'}",
+                    f"label {false_label}",
                 ]
                 return code_to_str(code)
 
@@ -219,7 +251,11 @@ def process_line(line: str) -> str:
             nested = nests.get()
             match nested['condition']:
                 case "if":
-                    code = [f"label {nested['end_label']}"]
+                    if nested['else'] or nested['elif']:
+                        end_label = nested['end_label']
+                    else:
+                        end_label = nested['false_label']
+                    code = [f"label {end_label}"]
                     return code_to_str(code)
                 case "while":
                     code = [
