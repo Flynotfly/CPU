@@ -97,10 +97,12 @@ REGISTERS = {
     'r3': 3,
     'r4': 4,
     'r5': 5,
-    'r6': 6,
-    'r7': 7,
-    'pc': 8,  # program counter
-    'sp': 9,  # stack pointer
+    'rv': 6,  # return value
+    'bp': 7,  # frame pointer
+    'sp': 8,  # stack pointer
+    'pc': 9,  # program counter - next operation
+    'pc-': 10,  # pc - 1: current operation / do not choose as dst
+    'pc+': 11,  # pc + 1: next second operation / do not choose as dst
 }
 
 labels = {}
@@ -125,7 +127,7 @@ def check_length(parts: list, expect: int, op: str):
         raise ValueError(f"{op} expects {expect - 1} operands, got {len(parts) - 1}")
 
 
-def parse_operand(tok: str, operand_type: str = 'src') -> tuple[int, bool] | tuple[str, bool]:
+def parse_operand(tok: str, operand_type: str) -> tuple[int, bool] | tuple[str, bool]:
     ALLOW_NUMBER = False
     ALLOW_REGISTER = False
     ALLOW_LABELS = False
@@ -133,16 +135,17 @@ def parse_operand(tok: str, operand_type: str = 'src') -> tuple[int, bool] | tup
     if operand_type == 'src':
         ALLOW_NUMBER = True
         ALLOW_REGISTER = True
-
     elif operand_type == 'dst':
         ALLOW_REGISTER = True
-
     elif operand_type == 'goto':
         ALLOW_NUMBER = True
         ALLOW_LABELS = True
-
+    elif operand_type == 'jmp':
+        ALLOW_NUMBER = True
+        ALLOW_REGISTER = True
+        ALLOW_LABELS = True
     else:
-        raise ValueError(f"Unknown operand type {operand_type}. Expect 'src', 'dst' or 'goto'")
+        raise ValueError(f"Unknown operand type {operand_type}. Expect 'src', 'dst', 'jmp' or 'goto'")
 
     try:
         num = int(tok, 0)
@@ -161,7 +164,7 @@ def parse_operand(tok: str, operand_type: str = 'src') -> tuple[int, bool] | tup
             raise ValueError(f"Register as operand is not allowed with {operand_type} operand type.")
 
     if ALLOW_LABELS:
-        return '#' + tok, False
+        return '#' + tok, True
 
     raise ValueError(f"Invalid operand {tok!r} for type {operand_type!r}")
 
@@ -217,6 +220,13 @@ def parse_line(line: str) -> tuple[int, int, int, int] | None | str:
             labels[label] = command_line
             return ''
 
+        case "jmp":
+            _check_length(2)
+            src, imm1 = parse_operand(parts[1], 'jmp')
+            dst, _ = parse_operand('pc', 'dst')
+            w0 = create_command(imm1, False, 'mov')
+            return w0, src, EMPTY, dst
+
         case op if op in CALC_CODES_ONE_ARG:
             _check_length(3)
             arg1, imm1 = parse_operand(parts[1], 'src')
@@ -257,8 +267,10 @@ def base_assemble_file(in_path: str, out_path: str):
                     command_line += 1
                     w0, w1, w2, w3 = parsed
                     w0 = to_u16(w0)
-                    w1 = to_u16(w1)
-                    w2 = to_u16(w2)
+                    if not isinstance(w1, str) or not w1.startswith('#'):
+                        w1 = to_u16(w1)
+                    if not isinstance(w2, str) or not w2.startswith('#'):
+                        w2 = to_u16(w2)
                     if not isinstance(w3, str) or not w3.startswith('#'):
                         w3 = to_u16(w3)
 
