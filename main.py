@@ -214,11 +214,12 @@ def parse_line(line: str) -> tuple[int, int, int, int] | None | str:
             return w0, EMPTY, EMPTY, dst
 
         case "label":
+            _check_length(2)
             label = parts[1]
             if label in labels:
                 raise KeyError(f"Label {label} already in labels. Each label should appear once.")
             labels[label] = command_line
-            return ''
+            return None
 
         case "jmp":
             _check_length(2)
@@ -226,6 +227,15 @@ def parse_line(line: str) -> tuple[int, int, int, int] | None | str:
             dst, _ = parse_operand('pc', 'dst')
             w0 = create_command(imm1, False, 'mov')
             return w0, src, EMPTY, dst
+
+        case "def":
+            _check_length(2)
+            result = [
+                f"label f{parts[1]}",
+                "push bp",
+                "mov sp bp",
+            ]
+            return result
 
         case op if op in CALC_CODES_ONE_ARG:
             _check_length(3)
