@@ -1,4 +1,8 @@
+from queue import LifoQueue
+
 from errors import MESSAGES
+from utils import is_condition
+
 
 CALLER_SAVED = ['r0', 'r1', 'r2']
 CALLEE_SAVED = ['r3', 'r4', 'r5']
@@ -8,6 +12,16 @@ global_function = {
     'args_quantity': 0,
     'saved_registers': [],
 }
+
+nests = LifoQueue()
+free_sys_label = 0
+
+
+def get_free_sys_label():
+    global free_sys_label
+    result = "_" + str(free_sys_label)
+    free_sys_label += 1
+    return result
 
 
 def code_to_str(code: list) -> str:
@@ -24,6 +38,9 @@ def process_line(line: str) -> str:
     match op:
         case "def":
             if global_function['is_inside']:
+                raise ValueError()
+
+            if not nests.empty():
                 raise ValueError()
 
             if len(parts) == 1:
@@ -60,10 +77,13 @@ def process_line(line: str) -> str:
             return code_to_str(code)
 
         case "ret":
-            if len(parts) != 2:
+            if not global_function['is_inside']:
                 raise ValueError()
 
-            if not global_function['is_inside']:
+            if not nests.empty():
+                raise ValueError()
+
+            if not len(parts) == 2:
                 raise ValueError()
 
             code = [f"mov {parts[1]} rv"]
@@ -114,7 +134,28 @@ def process_line(line: str) -> str:
             return code_to_str(code)
 
         case "if":
-            ...
+            if not len(parts) == 4:
+                raise ValueError()
+
+            if not is_condition(*parts[1:]):
+                raise ValueError()
+
+            sys_label = get_free_sys_label()
+            true_label = sys_label + "T"
+            false_label = sys_label + "F"
+            nests.put({
+                'condition': 'if',
+                'label': sys_label,
+                'elif': 0,
+            })
+            command, arg1, arg2 = parts[1:]
+            code = [
+                f"{command} {arg1} {arg2} {true_label}",
+                f"jmp {false_label}",
+                f"sys_label {true_label}",
+            ]
+            return code_to_str(code)
+
         case "elif":
             ...
         case "else":
