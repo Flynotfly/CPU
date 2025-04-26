@@ -293,6 +293,50 @@ def resolve_macro_line(line: str) -> str | None:
             else:
                 raise ValueError(f"The 'ret' command should have exactly one argument. Got {len(parts)-1}")
 
+        case "call":
+            if len(parts) >= 2:
+                code = []
+                goto = parts[2]
+                to_save = []
+                args = []
+                mode = None
+
+                for tok in parts[2:]:
+                    if tok in ("save", "args"):
+                        mode = tok
+                        continue
+
+                    if mode == "save":
+                        if tok in CALLER_SAVED:
+                            to_save.append(tok)
+                            code.append(f'push {tok}')
+                        else:
+                            raise ValueError(f"You should save only caller saved register when call funciton. "
+                                             f"Got {tok},expect on of: {CALLER_SAVED}")
+                    elif mode == "args":
+                        args.append(tok)
+                    else:
+                        raise ValueError(f"Got unexpected token '{tok}' during process 'call'.")
+
+                if args:
+                    for arg in reversed(args):
+                        code.append(f'push {arg}')
+                code.append("push pc+")
+                code.append(f"jmp {goto}")
+                if args:
+                    code.append(f"add sp {len(args)} sp")
+                if to_save:
+                    for element in to_save:
+                        code.append(f"pop {element}")
+
+                result = ""
+                for element in code:
+                    result = result + element + "\n"
+                return result
+
+            else:
+                raise ValueError(f"The 'call' command should have exactly one argument. Got 0")
+
         case _:
             return line
 
