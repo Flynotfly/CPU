@@ -146,6 +146,7 @@ def process_line(line: str) -> str:
             nests.put({
                 'condition': 'if',
                 'label': sys_label,
+                'else': False,
                 'elif': 0,
             })
             condition, arg1, arg2 = parts[1:]
