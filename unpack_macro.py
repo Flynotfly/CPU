@@ -141,8 +141,8 @@ def process_line(line: str) -> str:
                 raise ValueError()
 
             sys_label = get_free_sys_label()
-            true_label = sys_label + "T"
-            false_label = sys_label + "F"
+            true_label = sys_label + "t"
+            false_label = sys_label + "f"
             nests.put({
                 'condition': 'if',
                 'label': sys_label,
@@ -169,12 +169,12 @@ def process_line(line: str) -> str:
             nested = nests.get()
             if nested['condition'] == "if":
                 label = nested['label']
-                end_label = label + 'E'
+                end_label = label + 'e'
                 nested['end'] = end_label
                 nests.put(nested)
                 code = [
                     f"jmp {end_label}",
-                    f"label {label + 'F'}",
+                    f"label {label + 'f'}",
                 ]
                 return code_to_str(code)
 
