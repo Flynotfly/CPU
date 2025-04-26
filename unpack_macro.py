@@ -234,15 +234,22 @@ def process_line(line: str) -> str:
             return line
 
 
-def unpack_macro_commands(in_path: str, out_path: str):
+def unpack_macro_commands(in_path: str, out_path: str) -> list:
     with open(in_path, 'r', encoding='utf-8') as fin, \
             open(out_path, 'w', encoding='utf-8') as fout:
+        messages = []
         for ln, line in enumerate(fin, 1):
             try:
                 out_line = process_line(line)
             except ValueError as e:
-                raise ValueError
-                print(f"Exception on line {ln}: {e}")
+                messages.append('')
             else:
                 fout.write(out_line)
 
+        if global_function['is_inside']:
+            messages.append('')
+
+        if not nests.empty():
+            messages.append('')
+
+        return messages
