@@ -274,8 +274,8 @@ def resolve_macro_line(line: str) -> str | None:
                 raise ValueError(f"The 'def' command should have at least one argument. Got {len(parts)-1}")
 
         case "ret":
-            if len(parts) == 1:
-                code = []
+            if len(parts) == 2:
+                code = [f"mov {parts[1]} rv"]
                 reserve = current_function['reserved']
                 if reserve:
                     code.append(f"add sp {reserve} sp")
@@ -290,8 +290,7 @@ def resolve_macro_line(line: str) -> str | None:
                     result = result + element + "\n"
                 return result
             else:
-                raise ValueError(f"The 'ret' command should have no arguments. Got {len(parts)-1}")
-
+                raise ValueError(f"The 'ret' command should have exactly one argument. Got {len(parts)-1}")
 
         case _:
             return line
