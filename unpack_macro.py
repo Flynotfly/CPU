@@ -194,7 +194,7 @@ def process_line(line: str) -> str:
 
             nested = nests.get()
             if nested['condition'] == "if":
-                code = [f"sys_label {nested['end']}"]
+                code = [f"label {nested['end']}"]
                 return code_to_str(code)
             else:
                 raise ValueError()
