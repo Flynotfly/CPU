@@ -214,7 +214,39 @@ def process_line(line: str) -> str:
                 nests.put(nested)
                 raise ValueError()
         case "for":
-            ...
+            if len(parts) < 4 or len(parts) > 5:
+                raise ValueError()
+
+            dst = parts[1]
+            start = parts[2]
+            stop = parts[3]
+            step = 1
+            if len(parts) == 5:
+                step = parts[4]
+
+            label = get_free_sys_label()
+            start_label = label + 's'
+            true_label = label + 't'
+            end_label = label + 'e'
+            nests.put({
+                'condition': 'for',
+                'dst': dst,
+                'start': start,
+                'stop': stop,
+                'step': step,
+                'label': label,
+                'start_label': start_label,
+                'end_label': end_label,
+            })
+            code = [
+                f"mov {start} {dst}",
+                f"label {start_label}",
+                f"lt {dst} {stop} {true_label}",
+                f"jmp {end_label}",
+                f"label {true_label}",
+            ]
+            return code_to_str(code)
+
         case "while":
             if not len(parts) == 4:
                 raise ValueError()
@@ -261,6 +293,13 @@ def process_line(line: str) -> str:
                     code = [
                         f"jmp {nested['start_label']}",
                         f"label {nested['false_label']}",
+                    ]
+                    return code_to_str(code)
+                case "for":
+                    code = [
+                        f"add {nested['dst']} {nested['step']} {nested['dst']}",
+                        f"jmp {nested['start_label']}",
+                        f"label {nested['end_label']}"
                     ]
                     return code_to_str(code)
                 case _:
