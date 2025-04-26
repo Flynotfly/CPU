@@ -19,7 +19,7 @@ free_sys_label = 0
 
 def get_free_sys_label():
     global free_sys_label
-    result = "_" + str(free_sys_label)
+    result = "___" + str(free_sys_label)
     free_sys_label += 1
     return result
 
@@ -146,21 +146,41 @@ def process_line(line: str) -> str:
             nests.put({
                 'condition': 'if',
                 'label': sys_label,
-                'else': False,
+                'end': false_label,
                 'elif': 0,
             })
             condition, arg1, arg2 = parts[1:]
             code = [
                 f"{condition} {arg1} {arg2} {true_label}",
                 f"jmp {false_label}",
-                f"sys_label {true_label}",
+                f"label {true_label}",
             ]
             return code_to_str(code)
 
         case "elif":
             ...
         case "else":
-            ...
+            if nests.empty():
+                raise ValueError()
+
+            if not len(parts) == 1:
+                raise ValueError()
+
+            nested = nests.get()
+            if nested['condition'] == "if":
+                label = nested['label']
+                end_label = label + 'E'
+                nested['end'] = end_label
+                nests.put(nested)
+                code = [
+                    f"jmp {end_label}",
+                    f"label {label + 'F'}",
+                ]
+                return code_to_str(code)
+
+            else:
+                nests.put(nested)
+                raise ValueError()
         case "for":
             ...
         case "while":
@@ -174,11 +194,7 @@ def process_line(line: str) -> str:
 
             nested = nests.get()
             if nested['condition'] == "if":
-                if nested['else']:
-                    label = nested['label'] + "E"
-                else:
-                    label = nested['label'] + "F"
-                code = [f"sys_label {label}"]
+                code = [f"sys_label {nested['end']}"]
                 return code_to_str(code)
             else:
                 raise ValueError()
