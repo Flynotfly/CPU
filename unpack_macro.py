@@ -148,9 +148,9 @@ def process_line(line: str) -> str:
                 'label': sys_label,
                 'elif': 0,
             })
-            command, arg1, arg2 = parts[1:]
+            condition, arg1, arg2 = parts[1:]
             code = [
-                f"{command} {arg1} {arg2} {true_label}",
+                f"{condition} {arg1} {arg2} {true_label}",
                 f"jmp {false_label}",
                 f"sys_label {true_label}",
             ]
