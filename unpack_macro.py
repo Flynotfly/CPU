@@ -23,7 +23,7 @@ def process_line(line: str) -> str:
 
     match op:
         case "def":
-            if global_function['is_active']:
+            if global_function['is_inside']:
                 raise ValueError()
 
             if len(parts) == 1:
@@ -81,7 +81,38 @@ def process_line(line: str) -> str:
             return code_to_str(code)
 
         case "call":
-            ...
+            if len(parts) == 1:
+                raise ValueError()
+
+            code = []
+            goto_dst = parts[1]
+            saved_registers = []
+            args = []
+            mode = None
+            for tok in parts[2:]:
+                if tok in ("save", "args"):
+                    mode = tok
+                elif mode == "save":
+                    if tok in CALLER_SAVED:
+                        saved_registers.append(tok)
+                        code.append(f'push {tok}')
+                    else:
+                        raise ValueError()
+                elif mode == "args":
+                    args.append(tok)
+                else:
+                    raise ValueError()
+
+            for arg in reversed(args):
+                code.append(f'push {arg}')
+            code.append("push pc+")
+            code.append(f"jmp {goto_dst}")
+            if args:
+                code.append(f"add sp {len(args)} sp")
+            for register in saved_registers:
+                code.append(f"pop {register}")
+            return code_to_str(code)
+
         case "if":
             ...
         case "elif":
