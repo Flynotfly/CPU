@@ -35,6 +35,7 @@ OPCODES = {
 TYPES = {
     'nop': {
         'nop': 0b000,
+        'exit': 0b001,
     },
     'calc': {
         'base': 0b000,
@@ -53,6 +54,9 @@ FUNCS = {
     'nop': {
         'nop': {
             'nop': 0b0000,
+        },
+        'exit': {
+            'exit': 0b0000,
         },
     },
     'calc': {
@@ -296,7 +300,7 @@ def resolve_macro_line(line: str) -> str | None:
         case "call":
             if len(parts) >= 2:
                 code = []
-                goto = parts[2]
+                goto = parts[1]
                 to_save = []
                 args = []
                 mode = None
@@ -350,29 +354,30 @@ def parse_line(line: str) -> str | None:
 
     match op:
         case "nop":
-            command_line += 1
+            w0 = create_command(False, False, op)
             return to_string(0, EMPTY, EMPTY, EMPTY)
+
+        case "exit":
+            w0 = create_command(False, False, op)
+            return to_string(w0, EMPTY, EMPTY, EMPTY)
 
         case "mov":
             _check_length(3)
             src, imm1 = parse_operand(parts[1], 'src')
             dst, _ = parse_operand(parts[2], 'dst')
             w0 = create_command(imm1, False, op)
-            command_line += 1
             return to_string(w0, src, EMPTY, dst)
 
         case "push":
             _check_length(2)
             src, imm1 = parse_operand(parts[1], 'src')
             w0 = create_command(imm1, False, op)
-            command_line += 1
             return to_string(w0, src, EMPTY, EMPTY)
 
         case "pop":
             _check_length(2)
             dst, _ = parse_operand(parts[1], 'dst')
             w0 = create_command(False, False, op)
-            command_line += 1
             return to_string(w0, EMPTY, EMPTY, dst)
 
         case "label":
@@ -388,7 +393,6 @@ def parse_line(line: str) -> str | None:
             src, imm1 = parse_operand(parts[1], 'jmp')
             dst, _ = parse_operand('pc', 'dst')
             w0 = create_command(imm1, False, 'mov')
-            command_line += 1
             return to_string(w0, src, EMPTY, dst)
 
         case op if op in CALC_CODES_ONE_ARG:
@@ -396,7 +400,6 @@ def parse_line(line: str) -> str | None:
             arg1, imm1 = parse_operand(parts[1], 'src')
             dst, _ = parse_operand(parts[2], 'dst')
             w0 = create_command(imm1, False, op)
-            command_line += 1
             return to_string(w0, arg1, EMPTY, dst)
 
         case op if op in CALC_CODES_TWO_ARGS:
@@ -405,7 +408,6 @@ def parse_line(line: str) -> str | None:
             arg2, imm2 = parse_operand(parts[2], 'src')
             dst, _ = parse_operand(parts[3], 'dst')
             w0 = create_command(imm1, imm2, op)
-            command_line += 1
             return to_string(w0, arg1, arg2, dst)
 
         case op if op in CONDITION_CODES:
@@ -414,7 +416,6 @@ def parse_line(line: str) -> str | None:
             arg2, imm2 = parse_operand(parts[2], 'src')
             value, _ = parse_operand(parts[3], 'goto')
             w0 = create_command(imm1, imm2, op,)
-            command_line += 1
             return to_string(w0, arg1, arg2, value)
 
         case _:
@@ -445,9 +446,9 @@ def base_assemble_file(in_path: str, out_path: str):
         for ln, line in enumerate(fin, 1):
             try:
                 parsed = parse_line(line)
-                if not parsed:
-                    continue
-                fout.write(parsed)
+                if parsed:
+                    command_line += 1
+                    fout.write(parsed)
 
             except ValueError as e:
                 increase_error_counter()
