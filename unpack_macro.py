@@ -29,9 +29,7 @@ def process_line(line: str) -> str:
             if len(parts) == 1:
                 raise ValueError()
 
-            global_function['is_active'] = True
-            global_function['args_quantity'] = 0
-            global_function['saved_registers'] = []
+            global_function['is_inside'] = True
 
             code = [
                 f"label {parts[1]}",
@@ -62,7 +60,26 @@ def process_line(line: str) -> str:
             return code_to_str(code)
 
         case "ret":
-            ...
+            if len(parts) != 2:
+                raise ValueError()
+
+            if not global_function['is_inside']:
+                raise ValueError()
+
+            code = [f"mov {parts[1]} rv"]
+            if global_function['args_quantity']:
+                code.append(f"add sp {global_function['args_quantity']} sp")
+            for register in global_function['saved_registers']:
+                code.append(f"pop {register}")
+            code.append("pop bp")
+            code.append("pop pc")
+
+            global_function['is_inside'] = False
+            global_function['args_quantity'] = 0
+            global_function['saved_registers'] = []
+
+            return code_to_str(code)
+
         case "call":
             ...
         case "if":
