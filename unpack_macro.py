@@ -166,7 +166,23 @@ def process_line(line: str) -> str:
         case "while":
             ...
         case "end":
-            ...
+            if nests.empty():
+                raise ValueError()
+
+            if not len(parts) == 1:
+                raise ValueError()
+
+            nested = nests.get()
+            if nested['condition'] == "if":
+                if nested['else']:
+                    label = nested['label'] + "E"
+                else:
+                    label = nested['label'] + "F"
+                code = [f"sys_label {label}"]
+                return code_to_str(code)
+            else:
+                raise ValueError()
+
         case _:
             return line
 
