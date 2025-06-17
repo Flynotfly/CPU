@@ -9,11 +9,11 @@
 ## Особенности языка
 
 * Основные инструкции:
-*   Данные: mov, push, pop
-*   Логика и арифметика: add, sub, and, or, not, shl
-*   Управление: jmp, условные переходы (eq, lt, gt)
+  * Данные: mov, push, pop
+  * Логика и арифметика: add, sub, and, or, not, shl
+  * Управление: jmp, условные переходы (eq, lt, gt)
 * Регистры: r0-r5 (общего назначения), rv, bp, sp, pc (специализированные).
 * Высокоуровневые макросы:
-*   Функции: def, call, ret
-*   Условия: if, elif, else, end
-*   Циклы: for, while, end
+  * Функции: def, call, ret
+  * Условия: if, elif, else, end
+  * Циклы: for, while, end
